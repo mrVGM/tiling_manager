@@ -7,13 +7,8 @@ typedef bool (*GiveInstruction)(const char*, int);
 
 int main(int args, const char** argv)
 {
-#if DEBUG
-	const char* bridgeDLL = "..\\Bridge\\Bridge.dll";
-	const char* managerEXE = "..\\Manager\\Manager.exe";
-#else
 	const char* bridgeDLL = "Bridge.dll";
 	const char* managerEXE = "Manager.exe";
-#endif
 
 	if (args < 2)
 	{

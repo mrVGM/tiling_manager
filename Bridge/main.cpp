@@ -24,40 +24,6 @@ struct IPCInfo
 	HANDLE hInstruction = nullptr;
 };
 
-class Logger
-{
-private:
-	ThreadPool m_threadPool;
-	MPSCChannel<std::string> m_messages;
-
-public:
-	Logger() :
-		m_threadPool(1)
-	{
-		m_threadPool.RunTask([this]() {
-			using namespace std;
-			while (true)
-			{
-				static std::ofstream outputFile("C:\\Users\\Vas\\dev\\tiling_manager\\output.txt");
-				string cur = m_messages.Pop();
-				outputFile << cur;
-			}
-		});
-	}
-
-	void Log(const std::string& message)
-	{
-		m_messages.Push(message);
-	}
-};
-
-namespace
-{
-	Logger logger;
-}
-
-
-
 // DLL entry point 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 { 

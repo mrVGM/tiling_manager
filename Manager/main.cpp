@@ -22,11 +22,7 @@ UnhookFunc Unhook;
 
 void InstallHook(HANDLE writePipe, HANDLE instructionPipe)
 {
-#if DEBUG
-	const char* bridgeDLL = "..\\Bridge\\Bridge.dll";
-#else
 	const char* bridgeDLL = "Bridge.dll";
-#endif
 
 	hInstDLL = LoadLibrary(bridgeDLL);
 	if (hInstDLL)
@@ -72,7 +68,7 @@ void TestLua()
 {
 #if DEBUG
 	char moduleFileName[257] = {};
-	const char* luaTest = "..\\..\\..\\..\\scripts\\test.lua";
+	const char* luaTest = "..\\scripts\\test.lua";
 	DWORD size = GetModuleFileName(nullptr, moduleFileName, _countof(moduleFileName) - 1);
 	if (size >= _countof(moduleFileName) - 1)
 	{
