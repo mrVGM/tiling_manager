@@ -21,6 +21,7 @@ HINSTANCE hInstDLL;
 SetHookFunc SetHook;
 UnhookFunc Unhook;
 
+
 void InstallHook(HANDLE writePipe, HANDLE instructionPipe)
 {
 	const char* bridgeDLL = "Bridge.dll";
@@ -71,11 +72,29 @@ int windowId = 0;
 std::map<HWND, int> windowToIdMap;
 std::map<int, HWND> idToWindowMap;
 
+HANDLE LogWrite = nullptr;
+
 int Log(lua_State* L)
 {
-	const char* str = lua_tostring(L, -1);
-	std::cout << str << std::endl;
+	std::string str(lua_tostring(L, -1));
 	lua_pop(L, 1);
+
+	if (LogWrite)
+	{
+		DWORD written;
+		WriteFile(
+			LogWrite,
+			str.c_str(),
+			str.size() + 1,
+			&written,
+			nullptr
+		);
+
+		if (written == 0)
+		{
+			LogWrite = nullptr;
+		}
+	}
 
 	return 0;
 }
@@ -165,7 +184,7 @@ int main(int args, const char** argv)
 {
 	InitLua();
 
-	ThreadPool threadPool(4);
+	ThreadPool threadPool(3);
 
 	MPSCChannel<bool> channel;
 
@@ -175,30 +194,6 @@ int main(int args, const char** argv)
 	HANDLE readInstructionPipe = nullptr, writeInstructionPipe = nullptr;
 	CreatePipe(&readInstructionPipe, &writeInstructionPipe, nullptr, 0);
 
-	threadPool.RunTask([&]() {
-		using namespace std;
-		while (true)
-		{
-			std::string instruction;
-			cin >> instruction;
-			DWORD written;
-			unsigned short size = instruction.size();
-			WriteFile(
-				writeInstructionPipe,
-				&size,
-				sizeof(size),
-				&written,
-				nullptr
-			);
-			WriteFile(
-				writeInstructionPipe,
-				instruction.c_str(),
-				instruction.length(),
-				&written,
-				nullptr
-			);
-		}
-	});
 	threadPool.RunTask([&]() {
 		char buff[256];
 
@@ -239,6 +234,21 @@ int main(int args, const char** argv)
 			{
 				channel.Push(true);
 			}
+			if (instruction == "log")
+			{
+				DWORD* pid = reinterpret_cast<DWORD*>(buff + 4);
+				HANDLE* writeHandle = reinterpret_cast<HANDLE*>(buff + 4 + sizeof(DWORD));
+
+				HANDLE procHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, *pid);
+				HANDLE instructionHandle = nullptr;
+				BOOL res = DuplicateHandle(procHandle, *writeHandle, GetCurrentProcess(), &LogWrite, DUPLICATE_SAME_ACCESS, 0, 0);
+				CloseHandle(procHandle);
+
+				if (!res)
+				{
+					LogWrite = nullptr;
+				}
+			}
 		}
 	});
 
@@ -271,7 +281,6 @@ int main(int args, const char** argv)
 	threadPool.RunTask([&]() {
 		int windowId = 0;
 
-		//std::set<HWND> activeWindows;
 		while (true)
 		{
 			WindowInfo winfo = windowsChannel.Pop();
@@ -282,8 +291,6 @@ int main(int args, const char** argv)
 				idToWindowMap[windowId] = winfo.m_handle;
 				LuaWindowCreated(windowId);
 				++windowId;
-
-				//activeWindows.insert(winfo.m_handle);
 			}
 			else if (winfo.m_op == 'd')
 			{
@@ -292,7 +299,6 @@ int main(int args, const char** argv)
 				idToWindowMap.erase(id);
 
 				LuaWindowDestroyed(id);
-				//activeWindows.erase(winfo.m_handle);
 			}
 			continue;
 		}
