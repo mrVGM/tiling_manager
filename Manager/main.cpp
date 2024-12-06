@@ -182,10 +182,18 @@ int main(int args, const char** argv)
 			std::string instruction;
 			cin >> instruction;
 			DWORD written;
+			unsigned short size = instruction.size();
+			WriteFile(
+				writeInstructionPipe,
+				&size,
+				sizeof(size),
+				&written,
+				nullptr
+			);
 			WriteFile(
 				writeInstructionPipe,
 				instruction.c_str(),
-				instruction.length() + 1,
+				instruction.length(),
 				&written,
 				nullptr
 			);
@@ -194,19 +202,39 @@ int main(int args, const char** argv)
 	threadPool.RunTask([&]() {
 		char buff[256];
 
-		DWORD read;
 		while (true)
 		{
-			ReadFile(
-				readInstructionPipe,
-				buff,
-				256,
-				&read,
-				nullptr
-			);
+			unsigned short size;
+
+			{
+				DWORD read;
+				ReadFile(
+					readInstructionPipe,
+					&size,
+					sizeof(size),
+					&read,
+					nullptr
+				);
+			}
+
+			char* cur = buff;
+			unsigned short left = size;
+			while (left > 0)
+			{
+				DWORD read;
+				ReadFile(
+					readInstructionPipe,
+					cur,
+					left,
+					&read,
+					nullptr
+				);
+				left -= read;
+				cur += read;
+			}
+			buff[size] = 0;
 
 			std::string instruction = buff;
-
 			if (instruction == "stop")
 			{
 				channel.Push(true);

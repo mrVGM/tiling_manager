@@ -141,7 +141,7 @@ extern "C" __declspec(dllexport) void Unhook()
 	CloseHandle(writeHandle);
 }
 
-extern "C" __declspec(dllexport) bool GiveInstruction(const char* instruction, int size)
+extern "C" __declspec(dllexport) bool GiveInstruction(const char* instruction, unsigned short size)
 {
 	IPCInfo* info = static_cast<IPCInfo*>(lpvMem);
 	HANDLE procHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, info->PID);
@@ -152,6 +152,14 @@ extern "C" __declspec(dllexport) bool GiveInstruction(const char* instruction, i
 	if (res)
 	{
 		DWORD written;
+		WriteFile(
+			instructionHandle,
+			&size,
+			sizeof(size),
+			&written,
+			nullptr
+		);
+
 		WriteFile(
 			instructionHandle,
 			instruction,

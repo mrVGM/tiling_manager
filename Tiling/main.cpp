@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <iostream>
 
-typedef bool (*GiveInstruction)(const char*, int);
+typedef bool (*GiveInstruction)(const char*, unsigned short);
 
 int main(int args, const char** argv)
 {
