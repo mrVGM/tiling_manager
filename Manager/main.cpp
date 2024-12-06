@@ -74,7 +74,7 @@ std::map<int, HWND> idToWindowMap;
 int Log(lua_State* L)
 {
 	const char* str = lua_tostring(L, -1);
-	//std::cout << str << std::endl;
+	std::cout << str << std::endl;
 	lua_pop(L, 1);
 
 	return 0;
