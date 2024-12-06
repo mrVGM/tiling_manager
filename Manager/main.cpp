@@ -9,6 +9,9 @@
 #include <Windows.h>
 #include <AclAPI.h>
 #include <set>
+#include <filesystem>
+
+#include "lua.hpp"
 
 typedef void (*SetHookFunc)(HINSTANCE, DWORD pid, HANDLE writeHandle, HANDLE instructionHandle);
 typedef void (*UnhookFunc)();
@@ -65,9 +68,34 @@ bool ShouldProcessWindow(DWORD style)
 	return false;
 }
 
+void TestLua()
+{
+#if DEBUG
+	char moduleFileName[257] = {};
+	const char* luaTest = "..\\..\\..\\..\\scripts\\test.lua";
+	DWORD size = GetModuleFileName(nullptr, moduleFileName, _countof(moduleFileName) - 1);
+	if (size >= _countof(moduleFileName) - 1)
+	{
+		std::cout << "Path of executable too long!" << std::endl;
+		return;
+	}
+
+	std::filesystem::path luaTestPath = std::filesystem::path(moduleFileName).parent_path().append(luaTest);
+	luaTestPath = std::filesystem::canonical(luaTest);
+	std::string luaTestStr = luaTestPath.generic_string();
+
+	lua_State* L = luaL_newstate();
+	luaL_openlibs(L);
+	luaL_dofile(L, luaTestStr.c_str());
+	lua_close(L);
+#endif
+}
+
 int main(int args, const char** argv)
 {
-	ThreadPool threadPool(3);
+	TestLua();
+
+	ThreadPool threadPool(4);
 
 	MPSCChannel<bool> channel;
 
@@ -77,7 +105,22 @@ int main(int args, const char** argv)
 	HANDLE readInstructionPipe = nullptr, writeInstructionPipe = nullptr;
 	CreatePipe(&readInstructionPipe, &writeInstructionPipe, nullptr, 0);
 
-	std::cout << GetLastErrorAsString() << std::endl;
+	threadPool.RunTask([&]() {
+		using namespace std;
+		while (true)
+		{
+			std::string instruction;
+			cin >> instruction;
+			DWORD written;
+			WriteFile(
+				writeInstructionPipe,
+				instruction.c_str(),
+				instruction.length() + 1,
+				&written,
+				nullptr
+			);
+		}
+	});
 	threadPool.RunTask([&]() {
 		char buff[256];
 
