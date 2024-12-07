@@ -88,7 +88,7 @@ int main(int args, const char** argv)
 						NULL,
 						NULL,
 						FALSE,
-						0,
+						CREATE_NEW_CONSOLE,
 						NULL,
 						NULL,
 						&si,
