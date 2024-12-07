@@ -72,6 +72,56 @@ int windowId = 0;
 std::map<HWND, int> windowToIdMap;
 std::map<int, HWND> idToWindowMap;
 
+struct WindowItem
+{
+	HWND m_window = nullptr;
+	int m_id = -1;
+
+	bool IsValid()
+	{
+		return m_window && m_id >= 0;
+	}
+};
+
+WindowItem GetWindowByHandle(HWND handle)
+{
+	auto it = windowToIdMap.find(handle);
+	if (it == windowToIdMap.end())
+	{
+		return WindowItem{ nullptr, -1 };
+	}
+	return WindowItem{ handle, it->second };
+}
+
+WindowItem GetWindowById(int id)
+{
+	auto it = idToWindowMap.find(id);
+	if (it == idToWindowMap.end())
+	{
+		return WindowItem{ nullptr, -1 };
+	}
+	return WindowItem{ it->second, id };
+}
+
+int RecordWindow(HWND window)
+{
+	int id = windowId++;
+	windowToIdMap[window] = id;
+	idToWindowMap[id] = window;
+	return id;
+}
+
+void EraseRecord(HWND window)
+{
+	WindowItem item = GetWindowByHandle(window);
+
+	if (!item.IsValid())
+		return;
+
+	windowToIdMap.erase(item.m_window);
+	idToWindowMap.erase(item.m_id);
+}
+
 HANDLE LogWrite = nullptr;
 
 int Log(lua_State* L)
@@ -269,12 +319,7 @@ int main(int args, const char** argv)
 				nullptr
 			);
 
-			bool shouldProcess = false;
-			DWORD style = GetWindowLong(winfo.m_handle, GWL_STYLE);
-			if (ShouldProcessWindow(style))
-			{
-				windowsChannel.Push(winfo);
-			}
+			windowsChannel.Push(winfo);
 		}
 	});
 
@@ -284,23 +329,27 @@ int main(int args, const char** argv)
 		while (true)
 		{
 			WindowInfo winfo = windowsChannel.Pop();
-
-			if (winfo.m_op == 'c')
+			switch (winfo.m_op)
 			{
-				windowToIdMap[winfo.m_handle] = windowId;
-				idToWindowMap[windowId] = winfo.m_handle;
-				LuaWindowCreated(windowId);
-				++windowId;
-			}
-			else if (winfo.m_op == 'd')
+			case WinOp::Created:
 			{
-				int id = windowToIdMap[winfo.m_handle];
-				windowToIdMap.erase(winfo.m_handle);
-				idToWindowMap.erase(id);
-
-				LuaWindowDestroyed(id);
+				int id = RecordWindow(winfo.m_handle);
+				LuaWindowCreated(id);
 			}
-			continue;
+			break;
+
+			case WinOp::Destroyed:
+			{
+				WindowItem wi = GetWindowByHandle(winfo.m_handle);
+				if (wi.IsValid())
+				{
+					EraseRecord(wi.m_window);
+					LuaWindowDestroyed(wi.m_id);
+				}
+			}
+			break;
+
+			}
 		}
 	});
 	

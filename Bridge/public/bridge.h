@@ -1,8 +1,17 @@
 ﻿#include <Windows.h>
 
+enum WinOp
+{
+	None,
+	Created,
+	Destroyed,
+	Minimized,
+	Restored,
+};
+
 struct WindowInfo
 {
-	char m_op = 0;
+	WinOp m_op = None;
 	HWND m_handle = nullptr;
-	bool m_fullscreen = false;
+	DWORD m_parentProc = -1;
 };

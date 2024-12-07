@@ -15,6 +15,7 @@ static HANDLE hMapObject = NULL;  // handle to file mapping
 typedef LRESULT (*HookProc)(int nCode, WPARAM wParam, LPARAM lParam);
 
 HHOOK hHook = nullptr;
+HHOOK hCBTHook = nullptr;
 HANDLE writeHandle = nullptr;
 
 struct IPCInfo
@@ -78,7 +79,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	return TRUE;
 }
 
-LRESULT CALLBACK MyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+void InitWriteHandle()
 {
 	if (!writeHandle)
 	{
@@ -87,14 +88,53 @@ LRESULT CALLBACK MyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 		DuplicateHandle(procHandle, info->hWrite, GetCurrentProcess(), &writeHandle, DUPLICATE_SAME_ACCESS, 0, 0);
 		CloseHandle(procHandle);
 	}
+}
+
+LRESULT CALLBACK MyCBTHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	InitWriteHandle();
 	LRESULT res = CallNextHookEx(hHook, nCode, wParam, lParam);
 
+	WindowInfo winfo;
+	winfo.m_parentProc = GetCurrentProcessId();
+
+	if (nCode == HCBT_MINMAX)
+	{
+		winfo.m_handle = reinterpret_cast<HWND>(wParam);
+
+		if (lParam == SW_MINIMIZE)
+		{
+			winfo.m_op = WinOp::Minimized;
+		}
+		if (lParam == SW_RESTORE)
+		{
+			winfo.m_op = WinOp::Restored;
+		}
+
+		DWORD written;
+		WriteFile(
+			writeHandle,
+			&winfo,
+			sizeof(WindowInfo),
+			&written,
+			nullptr
+		);
+	}
+	
+	return res;
+}
+
+LRESULT CALLBACK MyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	InitWriteHandle();
+	LRESULT res = CallNextHookEx(hHook, nCode, wParam, lParam);
+
+	WindowInfo winfo;
+	winfo.m_parentProc = GetCurrentProcessId();
 	if (nCode == HSHELL_WINDOWCREATED)
 	{
-		WindowInfo winfo;
 		winfo.m_handle = reinterpret_cast<HWND>(wParam);
-		winfo.m_fullscreen = static_cast<bool>(lParam);
-		winfo.m_op = 'c';
+		winfo.m_op = WinOp::Created;
 
 		DWORD written;
 		WriteFile(
@@ -107,10 +147,8 @@ LRESULT CALLBACK MyHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 	}
 	else if (nCode == HSHELL_WINDOWDESTROYED)
 	{
-		WindowInfo winfo;
 		winfo.m_handle = reinterpret_cast<HWND>(wParam);
-		winfo.m_fullscreen = static_cast<bool>(lParam);
-		winfo.m_op = 'd';
+		winfo.m_op = WinOp::Destroyed;
 
 		DWORD written;
 		WriteFile(
@@ -133,10 +171,12 @@ extern "C" __declspec(dllexport) void SetHook(HINSTANCE hInstance, DWORD pid, HA
 	mem->hInstruction = instructionWrite;
 
 	hHook = SetWindowsHookEx(WH_SHELL, MyHookProc, hInstance, 0);
+	hCBTHook = SetWindowsHookEx(WH_CBT, MyCBTHookProc, hInstance, 0);
 }
 
 extern "C" __declspec(dllexport) void Unhook()
 {
+	UnhookWindowsHookEx(hCBTHook);
 	UnhookWindowsHookEx(hHook);
 	CloseHandle(writeHandle);
 }
