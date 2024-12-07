@@ -234,7 +234,7 @@ int main(int args, const char** argv)
 {
 	InitLua();
 
-	ThreadPool threadPool(3);
+	ThreadPool threadPool(4);
 
 	MPSCChannel<bool> channel;
 
@@ -323,6 +323,49 @@ int main(int args, const char** argv)
 		}
 	});
 
+
+	mtx_t procMtx;
+	mtx_init(&procMtx, mtx_plain);
+
+	std::map<HANDLE, std::vector<HWND>> processes;
+
+	threadPool.RunTask([&]() {
+		while (true)
+		{
+			timespec t;
+			t.tv_sec = 1;
+
+			thrd_sleep(&t, nullptr);
+
+			mtx_lock(&procMtx);
+			std::vector<HANDLE> toErase;
+			for (auto it = processes.begin(); it != processes.end(); ++it)
+			{
+				DWORD exitCode;
+				GetExitCodeProcess(it->first, &exitCode);
+				if (exitCode != STILL_ACTIVE)
+				{
+					for (auto w = it->second.begin(); w != it->second.end(); ++w)
+					{
+						HWND cur = *w;
+						WindowInfo wi;
+						wi.m_handle = cur;
+						wi.m_op = WinOp::Destroyed;
+						windowsChannel.Push(wi);
+					}
+					toErase.push_back(it->first);
+				}
+			}
+			for (auto it = toErase.begin(); it != toErase.end(); ++it)
+			{
+				CloseHandle(*it);
+				processes.erase(*it);
+			}
+
+			mtx_unlock(&procMtx);
+		}
+	});
+
 	threadPool.RunTask([&]() {
 		int windowId = 0;
 
@@ -334,6 +377,14 @@ int main(int args, const char** argv)
 			case WinOp::Created:
 			{
 				int id = RecordWindow(winfo.m_handle);
+				HANDLE proc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, winfo.m_parentProc);
+				if (proc)
+				{
+					mtx_lock(&procMtx);
+					std::vector<HWND>& wds = processes[proc];
+					wds.push_back(winfo.m_handle);
+					mtx_unlock(&procMtx);
+				}
 				LuaWindowCreated(id);
 			}
 			break;
