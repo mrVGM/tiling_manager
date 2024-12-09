@@ -188,6 +188,22 @@ int PositionWindow(lua_State* L)
 	return 0;
 }
 
+int MinimizeWindow(lua_State* L)
+{
+	int id = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	WindowItem wi = GetWindowById(id);
+
+	if (!wi.IsValid())
+	{
+		return 0;
+	}
+
+	ShowWindow(wi.m_window, SW_MINIMIZE);
+	return 0;
+}
+
 void InitLua()
 {
 	char moduleFileName[257] = {};
@@ -207,6 +223,9 @@ void InitLua()
 
 	lua_pushcfunction(L, PositionWindow);
 	lua_setglobal(L, "position_window");
+
+	lua_pushcfunction(L, MinimizeWindow);
+	lua_setglobal(L, "minimize_window");
 	
 	lua_pushcfunction(L, Log);
 	lua_setglobal(L, "log");
