@@ -60,16 +60,36 @@ reposition = function ()
 	end
     if count > 4 then count = 4 end
 
-	local width = math.floor(1920 / count)
-	local height = 1000
 
-	local i = 0
+    local layouts = {
+        {
+            { 0, 0, 1920, 1000 }
+        },
+        {
+            { 0, 0, 960, 1000 },
+            { 960, 0, 960, 1000 },
+        },
+        {
+            { 0, 0, 960, 1000 },
+            { 960, 0, 960, 500 },
+            { 960, 500, 960, 500 },
+        },
+        {
+            { 0, 0, 960, 500 },
+            { 0, 500, 960, 500 },
+            { 960, 0, 960, 500 },
+            { 960, 500, 960, 500 },
+        },
+    }
+    local layout = layouts[count]
+
+	local i = 1
     local co = enum_priority()
     local _, k = coroutine.resume(co)
-
     while coroutine.status(co) ~= 'dead' do
-        if i < 4 then
-			position_window(k, i * width, 0, width, height)
+        if i <= 4 then
+            local cur_layout = layout[i]
+			position_window(k, cur_layout[1], cur_layout[2], cur_layout[3], cur_layout[4])
         else
             minimize_window(k)
         end
