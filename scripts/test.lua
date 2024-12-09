@@ -58,6 +58,7 @@ reposition = function ()
 	if count == 0 then
 		return
 	end
+    if count > 4 then count = 4 end
 
 	local width = math.floor(1920 / count)
 	local height = 1000
@@ -66,8 +67,13 @@ reposition = function ()
     local co = enum_priority()
     local _, k = coroutine.resume(co)
 
-    while k ~= nil do
-        position_window(k, i * width, 0, width, height)
+    while coroutine.status(co) ~= 'dead' do
+        if i < 4 then
+			position_window(k, i * width, 0, width, height)
+        else
+            minimize_window(k)
+        end
+
         i = i + 1
         _, k = coroutine.resume(co);
     end
