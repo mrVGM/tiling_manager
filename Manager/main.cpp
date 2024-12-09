@@ -132,10 +132,19 @@ int Log(lua_State* L)
 	if (LogWrite)
 	{
 		DWORD written;
+		unsigned short size = str.size();
+		WriteFile(
+			LogWrite,
+			&size,
+			sizeof(size),
+			&written,
+			nullptr
+		);
+
 		WriteFile(
 			LogWrite,
 			str.c_str(),
-			str.size() + 1,
+			size,
 			&written,
 			nullptr
 		);

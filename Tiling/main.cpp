@@ -48,12 +48,22 @@ int main(int args, const char** argv)
 
 					while (true)
 					{
-						char buff[257] = {};
 						DWORD bytesRead;
+
+						unsigned short size;
+						ReadFile(
+							read,
+							&size,
+							sizeof(size),
+							&bytesRead,
+							nullptr
+						);
+
+						char buff[256] = {};
 						ReadFile(
 							read,
 							buff,
-							256,
+							size,
 							&bytesRead,
 							nullptr
 						);
