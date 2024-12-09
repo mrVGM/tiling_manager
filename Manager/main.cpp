@@ -244,15 +244,29 @@ void LuaWindowCreated(int id)
 	lua_getglobal(L, "window_created");
 	lua_pushinteger(L, id);
 
-	int t = lua_gettop(L);
-
 	lua_pcall(L, 1, 0, 0);
-	t = lua_gettop(L);
 }
 
 void LuaWindowDestroyed(int id)
 {
 	lua_getglobal(L, "window_destroyed");
+	lua_pushinteger(L, id);
+
+	lua_pcall(L, 1, 0, 0);
+}
+
+void LuaWindowMinimized(int id)
+{
+	lua_getglobal(L, "window_minimized");
+	lua_pushinteger(L, id);
+
+	lua_pcall(L, 1, 0, 0);
+
+}
+
+void LuaWindowRestored(int id)
+{
+	lua_getglobal(L, "window_restored");
 	lua_pushinteger(L, id);
 
 	lua_pcall(L, 1, 0, 0);
@@ -424,6 +438,26 @@ int main(int args, const char** argv)
 				{
 					EraseRecord(wi.m_window);
 					LuaWindowDestroyed(wi.m_id);
+				}
+			}
+			break;
+
+			case WinOp::Minimized:
+			{
+				WindowItem wi = GetWindowByHandle(winfo.m_handle);
+				if (wi.IsValid())
+				{
+					LuaWindowMinimized(wi.m_id);
+				}
+			}
+			break;
+
+			case WinOp::Restored:
+			{
+				WindowItem wi = GetWindowByHandle(winfo.m_handle);
+				if (wi.IsValid())
+				{
+					LuaWindowRestored(wi.m_id);
 				}
 			}
 			break;

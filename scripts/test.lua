@@ -4,7 +4,7 @@ function enum_windows()
     return coroutine.create(
         function()
             for k,v in pairs(active_windows) do
-                if v ~= nil then
+                if v ~= nil and v.minimized == false then
                     coroutine.yield(k)
                 end
             end
@@ -73,7 +73,7 @@ reposition = function ()
     end
 end
 
-window_created = function (id)
+ function window_created(id)
 	log("Window with id " .. id .. " created!")
 	active_windows[id] = {
         id = id,
@@ -83,11 +83,21 @@ window_created = function (id)
 	reposition()
 end
 
-window_destroyed = function (id)
+ function window_destroyed(id)
 	log("Window with id " .. id .. " destroyed!")
 
 	active_windows[id] = nil
 
 	reposition()
+end
+
+function window_minimized(id)
+    active_windows[id].minimized = true
+    reposition()
+end
+
+function window_restored(id)
+    active_windows[id].minimized = false
+    reposition()
 end
 
