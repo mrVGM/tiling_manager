@@ -1,3 +1,4 @@
+win_prio = 0
 active_windows = {}
 
 function enum_windows()
@@ -12,14 +13,24 @@ function enum_windows()
     )
 end
 
+function get_win_prio(id)
+    local win = active_windows[id]
+    if win == nil then return nil end
+
+    return win.prio
+end
+
 function get_most_recent(before)
     local co = enum_windows()
     local _, cur = coroutine.resume(co)
     local res = nil
 
     while coroutine.status(co) ~= 'dead' do
-        if before == nil or cur < before then
-            if res == nil or cur > res then res = cur end
+        local res_prio = get_win_prio(res)
+        local cur_prio = get_win_prio(cur)
+
+        if before == nil or cur_prio < before then
+            if res_prio == nil or cur_prio > res_prio then res = cur end
         end
         _, cur = coroutine.resume(co)
     end
@@ -33,7 +44,7 @@ function enum_priority()
             local cur = get_most_recent(nil)
             while cur ~= nil do
                 coroutine.yield(cur)
-                cur = get_most_recent(cur)
+                cur = get_most_recent(get_win_prio(cur))
             end
         end
     )
@@ -103,8 +114,10 @@ end
 	log("Window with id " .. id .. " created!")
 	active_windows[id] = {
         id = id,
-        minimized = false
+        minimized = false,
+        prio = win_prio
     }
+    win_prio = win_prio + 1
 
 	reposition()
 end
@@ -124,6 +137,8 @@ end
 
 function window_restored(id)
     active_windows[id].minimized = false
+    active_windows[id].prio = win_prio
+    win_prio = win_prio + 1
     reposition()
 end
 
