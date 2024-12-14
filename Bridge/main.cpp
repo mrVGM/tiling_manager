@@ -93,7 +93,7 @@ void InitWriteHandle()
 LRESULT CALLBACK MyCBTHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	InitWriteHandle();
-	LRESULT res = CallNextHookEx(hHook, nCode, wParam, lParam);
+	LRESULT res = CallNextHookEx(hCBTHook, nCode, wParam, lParam);
 
 	WindowInfo winfo;
 	winfo.m_parentProc = GetCurrentProcessId();

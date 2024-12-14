@@ -124,36 +124,66 @@ void EraseRecord(HWND window)
 
 HANDLE LogWrite = nullptr;
 
+void Log(const std::string& str)
+{
+	if (!LogWrite)
+	{
+		return;
+	}
+	DWORD written;
+	unsigned short size = str.size();
+	WriteFile(
+		LogWrite,
+		&size,
+		sizeof(size),
+		&written,
+		nullptr
+	);
+
+	WriteFile(
+		LogWrite,
+		str.c_str(),
+		size,
+		&written,
+		nullptr
+	);
+
+	if (written == 0)
+	{
+		LogWrite = nullptr;
+	}
+}
+
 int Log(lua_State* L)
 {
 	std::string str(lua_tostring(L, -1));
 	lua_pop(L, 1);
 
-	if (LogWrite)
-	{
-		DWORD written;
-		unsigned short size = str.size();
-		WriteFile(
-			LogWrite,
-			&size,
-			sizeof(size),
-			&written,
-			nullptr
-		);
+	Log(str);
 
-		WriteFile(
-			LogWrite,
-			str.c_str(),
-			size,
-			&written,
-			nullptr
-		);
+	return 0;
+}
 
-		if (written == 0)
-		{
-			LogWrite = nullptr;
-		}
-	}
+int RestoreWindow(lua_State* L)
+{
+	int id = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	HWND window = idToWindowMap[id];
+
+	WINDOWPLACEMENT wp;
+	wp.length = sizeof(wp);
+
+	wp.flags = WPF_ASYNCWINDOWPLACEMENT;
+	wp.showCmd = SW_RESTORE;
+	wp.rcNormalPosition = { 0, 0, 500, 500 };
+	wp.ptMinPosition = { 0, 0 };
+	wp.ptMaxPosition = { 500, 500 };
+
+	SetWindowPlacement(
+		window,
+		&wp
+	);
 
 	return 0;
 }
@@ -170,20 +200,23 @@ int PositionWindow(lua_State* L)
 
 	HWND window = idToWindowMap[id];
 	DWORD style = GetWindowLong(window, GWL_STYLE);
-	style = style & ~WS_MAXIMIZE;
-	SetWindowLong(window, GWL_STYLE, style | WS_OVERLAPPED);
+	style = style | WS_OVERLAPPED;
+	SetWindowLong(window, GWL_STYLE, style);
 
 	WINDOWPLACEMENT wp;
 	wp.length = sizeof(wp);
 
-	GetWindowPlacement(window, &wp);
-	wp.rcNormalPosition = { x, y, x + w, y + h };
-	wp.ptMinPosition = { x, y };
-	wp.ptMaxPosition = { x + w, y + h };
-	SetWindowPlacement(
-		window,
-		&wp
-	);
+	UINT swp_flags = SWP_NOACTIVATE
+      | SWP_NOCOPYBITS
+      | SWP_NOSENDCHANGING
+      | SWP_ASYNCWINDOWPOS	
+      | SWP_FRAMECHANGED;	
+
+	ShowWindow(window, SW_SHOW);
+
+	// Setting the position twice because sometimes it doesn't work correctly from the first try
+	SetWindowPos(window, nullptr, x, y, w, h, swp_flags);
+	SetWindowPos(window, nullptr, x, y, w, h, swp_flags);
 
 	return 0;
 }
@@ -223,6 +256,9 @@ void InitLua()
 
 	lua_pushcfunction(L, PositionWindow);
 	lua_setglobal(L, "position_window");
+
+	lua_pushcfunction(L, RestoreWindow);
+	lua_setglobal(L, "restore_window");
 
 	lua_pushcfunction(L, MinimizeWindow);
 	lua_setglobal(L, "minimize_window");

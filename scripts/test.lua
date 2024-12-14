@@ -139,6 +139,8 @@ function window_restored(id)
     active_windows[id].minimized = false
     active_windows[id].prio = win_prio
     win_prio = win_prio + 1
+
+    --restore_window(id)
     reposition()
 end
 
