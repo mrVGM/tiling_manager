@@ -44,6 +44,23 @@ public:
 		cnd_signal(&m_condition);
 		return res;
 	}
+
+	void PopAll(std::queue<T>& outQueue)
+	{
+		mtx_lock(&m_mutex);
+		while (m_queue.empty())
+		{
+			cnd_wait(&m_condition, &m_mutex);
+		}
+
+		outQueue = m_queue;
+		while (!m_queue.empty())
+		{
+			m_queue.pop();
+		}
+		mtx_unlock(&m_mutex);
+		cnd_signal(&m_condition);
+	}
 };
 
 

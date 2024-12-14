@@ -312,7 +312,7 @@ int main(int args, const char** argv)
 {
 	InitLua();
 
-	ThreadPool threadPool(4);
+	ThreadPool threadPool(5);
 
 	MPSCChannel<bool> channel;
 
@@ -382,6 +382,7 @@ int main(int args, const char** argv)
 
 	InstallHook(writePipe, writeInstructionPipe);
 
+	MPSCChannel<WindowInfo> callbackChannel;
 	MPSCChannel<WindowInfo> windowsChannel;
 	
 	threadPool.RunTask([&]() {
@@ -397,7 +398,27 @@ int main(int args, const char** argv)
 				nullptr
 			);
 
-			windowsChannel.Push(winfo);
+			callbackChannel.Push(winfo);
+		}
+	});
+
+	threadPool.RunTask([&]() {
+		std::queue<WindowInfo> wQ;
+		while (true)
+		{
+			timespec t;
+			t.tv_sec = 0;
+			t.tv_nsec = 500000000;
+			thrd_sleep(&t, nullptr);
+
+			while (!wQ.empty())
+			{
+				WindowInfo wi = wQ.front();
+				wQ.pop();
+				windowsChannel.Push(wi);
+			}
+
+			callbackChannel.PopAll(wQ);
 		}
 	});
 
